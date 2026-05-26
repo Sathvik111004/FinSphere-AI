@@ -14,7 +14,9 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
- 
+  
+  const [dragActive, setDragActive] = useState(false);
+
   const fetchDocs = async () => {
     try {
       const data = await apiService.documents.list();
@@ -29,6 +31,25 @@ export default function UploadPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
     }
   };
  
@@ -118,25 +139,35 @@ export default function UploadPage() {
                 </select>
               </div>
  
-              {/* Drag and drop layout simulation */}
-              <div className="border border-dashed border-white/[0.08] hover:border-indigo-500/40 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-white/[0.01] hover:bg-indigo-500/5 group relative overflow-hidden">
-                <UploadCloud className="w-10 h-10 text-gray-500 group-hover:text-indigo-400 transition-colors mb-2.5" />
-                <label className="text-xs font-bold text-gray-300 group-hover:text-indigo-300 cursor-pointer uppercase tracking-wider">
-                  <span>Select financial file</span>
-                  <input
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".pdf,.csv,.txt"
-                    className="hidden"
-                  />
-                </label>
+              {/* Clickable & Drag-and-drop functional dropzone */}
+              <label 
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                className={`border border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all relative overflow-hidden group ${
+                  dragActive 
+                    ? "border-indigo-500 bg-indigo-500/10" 
+                    : "border-white/[0.08] hover:border-indigo-500/40 bg-white/[0.01] hover:bg-indigo-500/5"
+                }`}
+              >
+                <UploadCloud className={`w-10 h-10 transition-colors mb-2.5 ${dragActive ? "text-indigo-400" : "text-gray-500 group-hover:text-indigo-400"}`} />
+                <span className="text-xs font-bold text-gray-300 group-hover:text-indigo-300 uppercase tracking-wider">
+                  {dragActive ? "Drop file here" : "Select financial file"}
+                </span>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.csv,.txt"
+                  className="hidden"
+                />
                 <p className="text-[9px] text-gray-500 mt-1.5 uppercase font-semibold">PDF, CSV, TXT (Max 10MB)</p>
                 {file && (
                   <div className="mt-3 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium rounded-lg max-w-[200px] truncate shadow-inner">
                     {file.name}
                   </div>
                 )}
-              </div>
+              </label>
  
               <button
                 type="submit"

@@ -26,7 +26,7 @@ class FinSphereSentimentService:
         
         total_hits = pos_count + neg_count
         if total_hits == 0:
-            return {"label": "neutral", "score": 0.50}
+            return {"label": "neutral", "score": 0.50, "raw_score": 0.0}
             
         score = (pos_count - neg_count) / total_hits
         
