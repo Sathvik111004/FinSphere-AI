@@ -1,0 +1,26 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local database, session files, and uploaded documents
+database.db
+chroma_db/
+jwt_secret.txt
+uploads/
+
+# Next.js build output and environment variables
+.next/
+out/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating System specific files
+.DS_Store
+Thumbs.db

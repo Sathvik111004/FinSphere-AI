@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # 1. Relational Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: finsphere-db
+    environment:
+      POSTGRES_USER: finsphere_user
+      POSTGRES_PASSWORD: secure_database_password_998
+      POSTGRES_DB: finsphere_relational
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - finsphere-network
+    restart: always
+
+  # 2. Vector Database
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: finsphere-vector
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/data
+    environment:
+      - ANONYMIZED_TELEMETRY=False
+    networks:
+      - finsphere-network
+    restart: always
+
+  # 3. FastAPI Python Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finsphere-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - chromadb
+    environment:
+      - DATABASE_URL=postgresql://finsphere_user:secure_database_password_998@postgres:5432/finsphere_relational
+      - CHROMA_PERSIST_DIRECTORY=/app/chroma_db
+      - JWT_SECRET=dynamic_docker_secret_string_4425
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    networks:
+      - finsphere-network
+    restart: always
+
+  # 4. Next.js Frontend UI Dashboard Client
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: finsphere-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - finsphere-network
+    restart: always
+
+volumes:
+  postgres_data:
+  chroma_data:
+
+networks:
+  finsphere-network:
+    driver: bridge
