@@ -8,7 +8,7 @@ from app.api.deps import get_current_user
 router = APIRouter()
 
 class AgentRequest(BaseModel):
-    prompt: str = Field(..., min_length=3, description="Task prompt for the agent to resolve")
+    prompt: str = Field(..., min_length=1, description="Task prompt for the agent to resolve")
     chat_history: Optional[List[Dict[str, str]]] = None
 
 class AgentResponse(BaseModel):

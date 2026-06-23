@@ -14,9 +14,10 @@ class FinSphereIngestionService:
     def __init__(self):
         os.makedirs(settings.UPLOADS_DIRECTORY, exist_ok=True)
         # Financial context character splitter. Focuses on maintaining integrity of financial statements, balance sheets, and formulas.
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+        self.text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            model_name="gpt-4",
+            chunk_size=500,
+            chunk_overlap=100,
             separators=["\n\n", "\n", " ", ""]
         )
 

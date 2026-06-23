@@ -1,14 +1,14 @@
-# 🌌 FinSphere AI — Autonomous Financial Intelligence & Risk Decision System
+# FinSphere AI — Autonomous Financial Intelligence & Risk Decision System
 
-FinSphere AI is an enterprise-grade financial intelligence workspace and automated risk auditing platform. Powered by high-precision **LangChain** ingestion pipelines, local vector databases, machine learning prediction models, and a conversational ReAct agent, it enables analysts to securely upload reports, predict revenue trends, check corporate solvency, detect accounting anomalies, and audit executive calls.
+FinSphere AI is an enterprise-grade financial intelligence workspace and automated risk auditing platform. Powered by high-precision LangChain ingestion pipelines, local vector databases, machine learning prediction models, and a highly resilient, autonomous conversational ReAct agent, it enables financial analysts to securely upload reports, predict revenue trends, check corporate solvency, detect accounting anomalies, and audit executive calls.
 
 The user interface features a premium dark-mode glassmorphic theme designed to translate complex quantitative equations into clear, plain-language business insights.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
-The following diagram illustrates how the frontend dashboard, FastAPI server, machine learning engines, and **LangChain** pipelines orchestrate to deliver grounded financial analysis:
+The following diagram illustrates how the frontend dashboard, FastAPI server, machine learning engines, and LangChain pipelines orchestrate to deliver grounded financial analysis:
 
 ```mermaid
 graph TD
@@ -65,7 +65,7 @@ graph TD
     Loader --> Splitter
     Splitter -->|Embeddings: Sentence-Transformers / OpenAI| VectorChroma
     VectorChroma -->|Index / Safe Tenant Mapping| ChromaStore
-
+    
     %% Query / Chat flows
     API <-->|RAG Query Request| RAGPipe
     RAGPipe -->|Retrieve Top-k Context via MMR| ChromaStore
@@ -79,21 +79,39 @@ graph TD
 
 ---
 
-## 🚀 Core Workspace Features
+## Core Workspace Features
 
-*   **📂 Ingested Reports Vault**: Upload PDF annual disclosures, CSV sheets, or TXT transcribing records. Files are automatically cleaned, converted, and indexed into secure vector search spaces.
-*   **💬 AI Financial Copilot**: A conversational search copilot that references your uploaded filings. Displays a collapsible "Thinking Process" log detailing each step, from mathematical evaluation to retrieved data sources.
-*   **🩺 Business Health Checker**: Computes bankruptcy risk probabilities and corporate stability tiers using historical accounting variables and Altman Z-Score coefficients.
-*   **🔮 Future Revenue Predictor**: Evaluates time-series trends using Ridge regression to forecast next-quarter metrics, rendering an interactive gradient area chart.
-*   **⚠️ Accounting Error Detector**: Audits margin, asset, and leverage structures using an Isolation Forest anomaly classifier to isolate reporting outliers or numerical imbalances.
-*   **📊 Smart Asset Allocator**: Dynamically generates risk-adjusted portfolio weights aligned with Conservative, Balanced, or Aggressive targets.
-*   **🎙️ Transcript Tone Scan**: Performs natural language sentiment parses on executive transcripts, highlighting management confidence blocks, commitments, and threat warnings.
+*   **Ingested Reports Vault**: Upload PDF annual disclosures, CSV sheets, or TXT transcribing records. Files are automatically cleaned, parsed, and indexed into secure vector search spaces.
+*   **AI Financial Copilot**: A conversational search assistant that references your uploaded filings. Displays a collapsible "Thinking Process" log detailing each step, from mathematical evaluation to retrieved data sources.
+*   **Business Health Checker**: Computes bankruptcy risk probabilities and corporate stability tiers using historical accounting variables and Altman Z-Score coefficients.
+*   **Future Revenue Predictor**: Evaluates time-series trends using Ridge regression to forecast next-quarter metrics, rendering an interactive gradient area chart.
+*   **Accounting Error Detector**: Audits margin, asset, and leverage structures using an Isolation Forest anomaly classifier to isolate reporting outliers or numerical imbalances.
+*   **Smart Asset Allocator**: Dynamically generates risk-adjusted portfolio weights aligned with Conservative, Balanced, or Aggressive targets.
+*   **Transcript Tone Scan**: Performs natural language sentiment parses on executive transcripts, highlighting management confidence blocks, commitments, and threat warnings.
 
 ---
 
-## 🦜 LangChain Integration Deep Dive
+## Advanced Autonomous Analyst Agent
 
-FinSphere AI relies on the **LangChain** ecosystem to construct its intelligent document loaders, chunking mechanisms, semantic search models, and the conversational ReAct agent. Below is an overview of how each LangChain component is implemented in the backend codebase:
+The highlight of the FinSphere AI platform is its **Autonomous Analyst Agent**, engineered using a custom LangChain ReAct (Reasoning and Action) execution loop. Unlike traditional single-prompt retrieval chains, the analyst agent operates as an intelligent workspace coordinator:
+
+### 1. Multi-Model API Resilience & Automatic Fallback
+To solve API reliability issues (such as `503 Service Unavailable` due to high demand or `429 Quota Exceeded` errors), the agent implements a sequenced fallback pool:
+- **Fallback Models**: Sequentially queries `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.1-flash-lite`, and `gemini-3.5-flash`.
+- **Transient Error Retry Loop**: Catches temporary status codes, automatically waiting and retrying each model before falling back to the next model in the pool.
+- **Local Sandbox Fallback**: If all external models fail or are unconfigured, the system automatically routes to a local offline rule-based semantic parser, preserving base-level functionality without breaking the workspace.
+
+### 2. Intelligent Tool Orchestration & Selective Routing
+The agent uses LangChain's decorator bindings to coordinate native Python mathematical engines and vector retrieval tasks:
+- **Conditional Triggering**: Rather than executing calculations blindly, the agent routes queries dynamically. It runs specialized mathematical models (e.g., Altman Z-Score, Isolation Forest anomaly checks, Ridge regression forecast) only when the user explicitly requests calculations or forecasts.
+- **Natural Language Pre-processing**: Instantly intercepts conversational greetings (e.g., "Hi", "Hello") at the agent boundary, avoiding unnecessary backend validation loops or model latency.
+- **Context Synthesis**: Melds RAG retrieval outputs with quantitative machine learning diagnostics, producing direct, concise, and audit-ready reports without boilerplate text or disclaimers.
+
+---
+
+## LangChain Integration Deep Dive
+
+FinSphere AI relies on the LangChain ecosystem to construct its intelligent document loaders, chunking mechanisms, semantic search models, and the conversational ReAct agent. Below is an overview of how each LangChain component is implemented in the backend codebase:
 
 ### 1. High-Precision Ingestion Pipeline
 - **Document Loaders (`PyPDFLoader`)**: When a PDF report is ingested, LangChain's native `PyPDFLoader` parses formatting headers and pages, maintaining structure for complex balance sheets.
@@ -148,14 +166,14 @@ FinSphere AI relies on the **LangChain** ecosystem to construct its intelligent 
   - `anomaly_detector`: Runs Isolation Forest checks.
 - **Agent Coordinator (`create_openai_tools_agent`)**: Orchestrates the agent using an OpenAI tools prompt:
   ```python
-  agent = create_openai_tools_agent(llm, tools, prompt)
-  executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+  agent = create_openai_tools_agent(llm, self.tools, prompt)
+  executor = AgentExecutor(agent=agent, tools=self.tools, verbose=True)
   ```
   This creates an autonomous feedback loop: the agent reads the user's prompt, decides which tool to run, fetches the numbers, executes the ML model, and outputs a structured SWOT report.
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend
 *   **Web Framework**: FastAPI (Python 3.11) - Asynchronous, high-throughput endpoints.
@@ -172,7 +190,7 @@ FinSphere AI relies on the **LangChain** ecosystem to construct its intelligent 
 
 ---
 
-## 📂 Repository Layout
+## Repository Layout
 
 ```text
 FinSphere-AI/
@@ -203,7 +221,7 @@ FinSphere-AI/
 
 ---
 
-## ⚙️ Configuration & Environment Setup
+## Configuration & Environment Setup
 
 The system works out-of-the-box in local fallback sandbox mode. To enable dynamic AI-powered audits and real-time reasoning, create a `.env` file inside the root folder using `.env.example` as a blueprint:
 
@@ -221,7 +239,7 @@ GEMINI_API_KEY="your-gemini-api-key-here"
 
 ---
 
-## 💻 Local Development Startup
+## Local Development Startup
 
 ### 1. Boot up the Backend Server
 ```bash
@@ -252,7 +270,7 @@ npm run dev
 
 ---
 
-## 🧪 Enterprise Verification & Diagnostics
+## Enterprise Verification & Diagnostics
 
 To run the offline system diagnostics and check the integrity of all database routes, ML classifiers, and RAG pipelines:
 

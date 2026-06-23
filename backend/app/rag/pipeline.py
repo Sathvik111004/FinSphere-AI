@@ -5,6 +5,7 @@ from langchain.memory import ConversationBufferWindowMemory
 from langchain.prompts import PromptTemplate
 from app.core.config import settings
 from app.rag.vector_store import vector_store_client
+from app.utils.gemini import generate_content_with_fallback
 
 # Explicit QA Prompts forcing source citation and preventing hallucinations
 qa_prompt_template = """You are FinSphere AI, a senior elite investment analyst and financial risk auditor. 
@@ -88,26 +89,10 @@ class FinSphereRAGPipeline:
             except Exception as e:
                 answer = f"Error communicating with OpenAI service: {str(e)}"
         elif settings.GEMINI_API_KEY and combined_context.strip():
-            # Run using native Google Gemini API
+            # Run using native Google Gemini API with robust fallbacks and retries
             try:
-                import requests
                 formatted_prompt = QA_PROMPT.format(context=combined_context, question=query)
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
-                headers = {"Content-Type": "application/json"}
-                payload = {
-                    "contents": [{
-                        "parts": [{"text": formatted_prompt}]
-                    }],
-                    "generationConfig": {
-                        "temperature": 0.0
-                    }
-                }
-                response = requests.post(url, json=payload, headers=headers)
-                if response.status_code == 200:
-                    res_json = response.json()
-                    answer = res_json["candidates"][0]["content"]["parts"][0]["text"]
-                else:
-                    answer = f"Gemini API error (code {response.status_code}): {response.text}"
+                answer = generate_content_with_fallback(formatted_prompt, temperature=0.0)
             except Exception as e:
                 answer = f"Error communicating with Gemini service: {str(e)}"
         else:
@@ -117,30 +102,118 @@ class FinSphereRAGPipeline:
             else:
                 answer = f"### Financial Analysis Report\nBased on retrieved records ({', '.join(sources)}), here is the structured summary:\n\n"
                 
-                # Heuristically parse retrieved context and filter out test-suite metadata
-                raw_lines = combined_context.split("\n")
+                import re
+                
+                # 1. Reconstruct paragraphs by joining single newlines only when they represent wrapped text
+                lines = combined_context.split("\n")
+                reconstructed_blocks = []
+                current_block = ""
+                for line in lines:
+                    line_strip = line.strip()
+                    if not line_strip:
+                        if current_block:
+                            reconstructed_blocks.append(current_block)
+                            current_block = ""
+                        continue
+                    
+                    if current_block:
+                        ends_with_terminator = current_block.rstrip()[-1] in ".!?"
+                        starts_new_field = (
+                            line_strip[0].isupper() or 
+                            line_strip[0].isdigit() or 
+                            line_strip[0] in "-*•▪" or 
+                            (":" in line_strip and len(line_strip.split(":")[0]) < 25)
+                        )
+                        if not ends_with_terminator and not starts_new_field:
+                            current_block = current_block.rstrip() + " " + line_strip
+                            continue
+                    
+                    if current_block:
+                        reconstructed_blocks.append(current_block)
+                    current_block = line_strip
+                
+                if current_block:
+                    reconstructed_blocks.append(current_block)
+                
+                # 2. Extract clean sentences from each reconstructed block
                 summary_points = []
-                for line in raw_lines:
-                    cleaned = line.strip()
-                    if len(cleaned) < 20:
-                        continue
-                    # Clean out test suite tags and boilerplate
-                    if any(tag in cleaned for tag in ["Question:", "Expected AI Output:", "Expected Output:", "Expected AI:", "Expected:"]):
-                        continue
-                    # Remove raw bullet markers
-                    for marker in ["-", "*", "•", "▪"]:
-                        if cleaned.startswith(marker):
-                            cleaned = cleaned[1:].strip()
-                    if cleaned and cleaned not in summary_points:
-                        summary_points.append(cleaned)
+                for block in reconstructed_blocks:
+                    for sentence in re.split(r'(?<=[.!?])\s+', block):
+                        cleaned = sentence.strip()
+                        if len(cleaned) < 15:
+                            continue
+                        # Filter out dividing lines (consisting of repeating symbols like =, -, *, _)
+                        if len(set(cleaned)) <= 4 and any(c in "-=_*·•▪ " for c in cleaned):
+                            continue
+                        # Clean out test suite tags and boilerplate
+                        if any(tag in cleaned for tag in ["Question:", "Expected AI Output:", "Expected Output:", "Expected AI:", "Expected:"]):
+                            continue
+                        # Remove any leading bullet or list markers
+                        cleaned = re.sub(r'^[-*•▪\d\.\s]+', '', cleaned).strip()
+                        
+                        if cleaned and cleaned not in summary_points:
+                            summary_points.append(cleaned)
+                
+                # Rank summary points based on query similarity
+                # Split query into lowercase alphanumeric words, filtering out common stopwords
+                stopwords = {
+                    "what", "is", "the", "are", "of", "in", "about", "on", "for", "with", "a", "an", "to", "and", 
+                    "or", "by", "from", "at", "how", "why", "where", "who", "which", "do", "does", "did", "can",
+                    "could", "should", "would", "will", "shall", "me", "my", "our", "your", "his", "her", "their",
+                    "was", "were", "been", "has", "have", "had", "be", "than", "more", "less", "least"
+                }
+                query_words = [w.strip().lower() for w in re.split(r'\W+', query) if w.strip()]
+                query_keywords = [w for w in query_words if w not in stopwords and len(w) > 1]
+                
+                # Build roots of query words to handle plurals/conjugations (e.g. "founded" matches "found")
+                query_roots = set()
+                for kw in query_keywords:
+                    query_roots.add(kw)
+                    if kw.endswith("ed"):
+                        query_roots.add(kw[:-2])
+                        query_roots.add(kw[:-1])
+                    if kw.endswith("ing"):
+                        query_roots.add(kw[:-3])
+                    if kw.endswith("s") and len(kw) > 3:
+                        query_roots.add(kw[:-1])
+                
+                ranked_points = []
+                for point in summary_points:
+                    point_lower = point.lower()
+                    score = 0
+                    
+                    # Score keyword matches
+                    for kw in query_keywords:
+                        if re.search(r'\b' + re.escape(kw) + r'\b', point_lower):
+                            score += 3
+                        elif kw in point_lower:
+                            score += 1
+                            
+                    # Penalize unrelated tabular fields (e.g., "Founded: 2008") if the user did not query them
+                    tabular_keys = ["founded", "headquarters", "employees", "industry", "headquarter", "employee"]
+                    for tk in tabular_keys:
+                        if tk in point_lower:
+                            user_asked = any((kw in tk or tk in kw) for kw in query_roots)
+                            if not user_asked:
+                                score -= 10
+                                
+                    ranked_points.append((score, point))
+                
+                # Sort by score descending
+                ranked_points.sort(key=lambda x: x[0], reverse=True)
                 
                 # Take top items and present clearly
-                points_to_show = summary_points[:4]
+                matching_points = [p[1] for p in ranked_points if p[0] > 0]
+                if matching_points:
+                    points_to_show = matching_points[:4]
+                else:
+                    points_to_show = [p[1] for p in ranked_points[:4]]
+                
                 if not points_to_show:
                     points_to_show = ["Retrieved document contains unstructured raw test templates; please view raw uploaded report files for full details."]
                 
                 for p in points_to_show:
-                    answer += f"- **Key Observation**: {p} [Source: {list(sources)[0]}]\n"
+                    answer += f"- {p} [Source: {list(sources)[0]}]\n"
                 
                 answer += "\n*Note: Running in local sandbox mode. Configure OPENAI_API_KEY or GEMINI_API_KEY in .env for dynamic AI-powered audits.*"
                 

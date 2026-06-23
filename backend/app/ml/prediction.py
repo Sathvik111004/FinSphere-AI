@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any, List, Tuple
 from app.core.config import settings
 
-MODEL_DIR = "/Users/sathvikgattu/.gemini/antigravity-ide/scratch/finsphere-ai/backend/app/ml/models"
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 class FinSphereMLPredictionEngine:
     def __init__(self):

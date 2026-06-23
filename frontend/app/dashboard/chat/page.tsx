@@ -4,6 +4,59 @@ import { useState, useRef, useEffect } from "react";
 import Sidebar from "../../../components/sidebar";
 import { MessageSquare, Send, Sparkles, HelpCircle, ChevronDown, ChevronUp, FileText, Bot, User } from "lucide-react";
 import { apiService } from "../../../services/api";
+import DOMPurify from "dompurify";
+
+function renderMarkdown(text: string) {
+  if (!text) return "";
+
+  // 1. Escape HTML characters to prevent XSS
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // 2. Headers
+  html = html
+    .replace(/^### (.*?)$/gm, '<h3 class="text-xs font-extrabold text-white mt-3 mb-1.5">$1</h3>')
+    .replace(/^#### (.*?)$/gm, '<h4 class="text-[10px] font-bold text-indigo-300 mt-2 mb-1">$1</h4>')
+    .replace(/^## (.*?)$/gm, '<h2 class="text-sm font-black text-white mt-4 mb-2">$1</h2>')
+    .replace(/^# (.*?)$/gm, '<h1 class="text-base font-black text-white mt-5 mb-2.5">$1</h1>');
+
+  // 3. Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-indigo-300">$1</strong>');
+
+  // 4. Italics
+  html = html.replace(/\*(.*?)\*/g, '<em class="text-gray-300 italic">$1</em>');
+
+  // 5. Bullet points
+  html = html.replace(/^\s*[-*•]\s+(.*?)$/gm, '<li class="ml-4 list-disc pl-1 mb-1 text-gray-300">$1</li>');
+
+  // Wrap contiguous <li> groups in <ul>
+  const lines = html.split("\n");
+  let inList = false;
+  const processedLines = [];
+
+  for (let line of lines) {
+    if (line.trim().startsWith("<li")) {
+      if (!inList) {
+        processedLines.push('<ul class="space-y-1.5 my-2">');
+        inList = true;
+      }
+      processedLines.push(line);
+    } else {
+      if (inList) {
+        processedLines.push('</ul>');
+        inList = false;
+      }
+      processedLines.push(line);
+    }
+  }
+  if (inList) {
+    processedLines.push('</ul>');
+  }
+
+  return processedLines.join("\n");
+}
  
 export default function AnalystChatPage() {
   const [prompt, setPrompt] = useState("");
@@ -66,7 +119,7 @@ export default function AnalystChatPage() {
  
   const sampleQueries = [
     "Run bankruptcy risk calculations for our balance sheet.",
-    "Evaluate revenue growth using quarters [105.5, 112.0, 118.4, 124.8].",
+    "Evaluate revenue growth trajectory and project next-quarter performance.",
     "Identify major risk factors in the uploaded annual report."
   ];
  
@@ -136,13 +189,16 @@ export default function AnalystChatPage() {
                     
                     <div className={`space-y-3 max-w-[80%] ${isUser ? "order-1" : "order-2"}`}>
                       {/* Message bubble card */}
-                      <div className={`p-4 rounded-2xl border text-xs leading-relaxed whitespace-pre-wrap ${
-                        isUser 
-                          ? "bg-indigo-600 border-indigo-500/25 text-white rounded-tr-none shadow-lg shadow-indigo-600/10" 
-                          : "glass-panel-premium text-gray-200 border-white/[0.04] rounded-tl-none"
-                      }`}>
-                        {msg.content}
-                      </div>
+                      {isUser ? (
+                        <div className="p-4 rounded-2xl border text-xs leading-relaxed whitespace-pre-wrap bg-indigo-600 border-indigo-500/25 text-white rounded-tr-none shadow-lg shadow-indigo-600/10">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div 
+                          className="p-4 rounded-2xl border text-xs leading-relaxed glass-panel-premium text-gray-200 border-white/[0.04] rounded-tl-none"
+                          dangerouslySetInnerHTML={{ __html: typeof window !== "undefined" ? DOMPurify.sanitize(renderMarkdown(msg.content)) : msg.content }}
+                        />
+                      )}
                       
                       {/* Collapsible details for Agent Reasoning steps */}
                       {!isUser && msg.reasoning && msg.reasoning.length > 0 && (

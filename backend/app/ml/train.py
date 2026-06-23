@@ -7,7 +7,7 @@ from sklearn.linear_model import Ridge
 from app.core.config import settings
 
 # Define target paths for serialized models
-MODEL_DIR = "/Users/sathvikgattu/.gemini/antigravity-ide/scratch/finsphere-ai/backend/app/ml/models"
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 def build_and_train_models():
     """
